@@ -78,9 +78,25 @@ final class ProcessSubscriptionRefund
         }
 
         $originalPool = (int) $payment->instructor_pool_cents;
-        $clawbackPool = (int) floor($originalPool * $amountCents / $payment->amount_cents);
+        $originalPayment = (int) $payment->amount_cents;
 
-        if ($clawbackPool === 0) {
+        // Cumulative approach: compute the total clawback that *should* have been
+        // posted across all refunds including this one, then subtract what has
+        // already been posted. This ensures rounding errors do not accumulate
+        // across multiple partial refunds — the final refund always zeroes the
+        // pool regardless of how many partial refunds preceded it.
+        $totalRefundedCents = $payment->refundedCents(); // includes the current refund (saved before this call)
+        $targetCumulativePool = intdiv($originalPool * $totalRefundedCents, $originalPayment);
+
+        $priorCumulativePool = (int) abs(
+            (int) $payment->ledgerEntries()
+                ->where('type', LedgerEntryType::RefundClawback->value)
+                ->sum('amount_cents')
+        );
+
+        $clawbackPool = $targetCumulativePool - $priorCumulativePool;
+
+        if ($clawbackPool <= 0) {
             return;
         }
 

@@ -9,13 +9,13 @@ class ReconcilePayoutsCommand extends Command
 {
     protected $signature = 'payouts:reconcile';
 
-    protected $description = 'Resolve payouts left in unknown after a provider timeout.';
+    protected $description = 'Dispatch reconciliation jobs for payouts left in unknown after a provider timeout.';
 
     public function handle(ReconcileUnknownPayouts $reconcile): int
     {
-        $resolved = $reconcile->handle();
+        $dispatched = $reconcile->handle();
 
-        $this->info(sprintf('Reconciled %d unknown payout(s).', count($resolved)));
+        $this->info(sprintf('Dispatched reconciliation for %d unknown payout(s).', count($dispatched)));
 
         return self::SUCCESS;
     }

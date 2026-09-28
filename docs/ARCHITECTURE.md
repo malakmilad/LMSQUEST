@@ -128,7 +128,7 @@ What already points that way:
 
 - Integer money, no `DECIMAL` rounding drift
 - Append-only ledger (InnoDB insert sequential on `id`, partition candidate on `instructor_id` or month)
-- Cached payable balance so dispatch is an index range scan: `(available_balance_cents, in_flight_payout_id)`
+- Cached payable balance so dispatch is an index range scan: `(in_flight_payout_id, available_balance_cents, id)` — null check first (eliminates all in-flight rows in one step), range on balance second, `id` as trailing cover column for `chunkById`
 - Chunked dispatch (`chunkById`) + `--limit`
 - Provider calls outside the instructor row lock (we lock, post hold, commit, then HTTP)
 - Jobs unique per payout
@@ -149,7 +149,14 @@ What I would add before 500k, not before the review:
 - No tax / withholding
 - Mock provider is in *our* database. A real PSP is a different failure domain; the interface is the seam (`PaymentProvider`)
 - `ShouldBeUnique` needs a shared cache (Redis) across app servers. The DB constraints do not.
-- sqlite in tests does not exercise InnoDB gap locks. Idempotency is still enforced by unique keys.
+- sqlite in tests does not exercise InnoDB gap locks. Idempotency is still
+  enforced by unique keys (`payouts.idempotency_key`, `payout:{id}:debit`
+  ledger key). The application-level guard (`in_flight_payout_id` checked
+  under `FOR UPDATE`) is validated by a dedicated MySQL harness — see
+  [`tests/Concurrency/README.md`](../tests/Concurrency/README.md). Run it
+  before shipping changes to `InitiateInstructorPayout` or
+  `DispatchInstructorPayouts`, and in CI against a real MySQL service
+  container.
 
 ## Senior bonus — mid-term plan change (not built)
 

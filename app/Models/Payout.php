@@ -27,6 +27,7 @@ class Payout extends Model
         'attempt_count',
         'last_error',
         'dispatched_at',
+        'processing_started_at',
         'confirmed_at',
     ];
 
@@ -37,6 +38,7 @@ class Payout extends Model
             'attempt_count' => 'integer',
             'status' => PayoutStatus::class,
             'dispatched_at' => 'datetime',
+            'processing_started_at' => 'datetime',
             'confirmed_at' => 'datetime',
         ];
     }

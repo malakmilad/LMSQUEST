@@ -71,6 +71,7 @@ final class ProcessInstructorPayout
         $payout->forceFill([
             'status' => PayoutStatus::Processing,
             'attempt_count' => $payout->attempt_count + 1,
+            'processing_started_at' => $payout->processing_started_at ?? now(),
         ])->save();
     }
 
