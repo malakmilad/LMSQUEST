@@ -102,7 +102,8 @@ Full reasoning is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Short versi
 | Command | Role |
 |---|---|
 | `payouts:dispatch --min=0 --limit=500` | Lock instructors, post holds, queue transfers |
-| `payouts:reconcile` | Resolve `unknown` payouts via provider status |
+| `payouts:reconcile` | Dispatch reconciliation jobs for `unknown` payouts |
+| `payouts:recover-stale --threshold=30` | Re-dispatch jobs for payouts stuck in `pending`/`processing` beyond the threshold (minutes) |
 
 ## Video walkthrough (15–20 min)
 

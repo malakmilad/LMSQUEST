@@ -1,49 +1,57 @@
-Instructor Revenue Ledger — Pest
-Date: 2026-09-21
-Command: php vendor/bin/pest
-Result: 28 passed (117 assertions)
-Duration: 3.79s
+﻿
+   PASS  Tests\Unit\MoneyTest
+  ✓ it never uses floating point for arithmetic                                          0.23s
+  ✓ it keeps the platform remainder so pool + cut === original                           0.05s
+  ✓ it splits leftover cents with the largest remainder method                           0.05s
+  ✓ it is deterministic when remainders tie: lower id wins the extra cent                0.05s
+  ✓ it weights a 2:1 split exactly                                                       0.05s
+  ✓ it formats negative balances for clawbacks                                           0.05s
+  ✓ it rejects mixed currencies                                                          0.05s
 
-  PASS  Tests\Unit\MoneyTest
-  ✓ it never uses floating point for arithmetic
-  ✓ it keeps the platform remainder so pool + cut === original
-  ✓ it splits leftover cents with the largest remainder method
-  ✓ it is deterministic when remainders tie: lower id wins the extra cent
-  ✓ it weights a 2:1 split exactly
-  ✓ it formats negative balances for clawbacks
-  ✓ it rejects mixed currencies
+   PASS  Tests\Feature\FilamentInstructorScreenTest
+  ✓ it lets an admin view instructor balances and payout history                         0.55s
+  ✓ it blocks non-admins from the panel                                                  0.07s
 
-  PASS  Tests\Feature\FilamentInstructorScreenTest
-  ✓ it lets an admin view instructor balances and payout history
-  ✓ it blocks non-admins from the panel
+   PASS  Tests\Feature\JobRetryTest
+  ✓ it does not double-pay when the same payout job is handled twice                     0.11s
+  ✓ it dispatches a queued payout job after the hold is posted                           0.09s
+  ✓ it keeps money correct if the worker crashes after the provider succeeded            0.09s
 
-  PASS  Tests\Feature\JobRetryTest
-  ✓ it does not double-pay when the same payout job is handled twice
-  ✓ it dispatches a queued payout job after the hold is posted
-  ✓ it keeps money correct if the worker crashes after the provider succeeded
+   PASS  Tests\Feature\PayoutIdempotencyTest
+  ✓ it never double-pays when the payout command runs twice                              0.12s
+  ✓ it skips an instructor who already has an in-flight payout                           0.08s
+  ✓ it releases the hold and allows a later payout after a permanent provider failure    0.12s
 
-  PASS  Tests\Feature\PayoutIdempotencyTest
-  ✓ it never double-pays when the payout command runs twice
-  ✓ it skips an instructor who already has an in-flight payout
-  ✓ it releases the hold and allows a later payout after a permanent provider failure
+   PASS  Tests\Feature\ProviderUncertaintyTest
+  ✓ it does not treat a timeout as a failure and will not pay that amount again          0.11s
+  ✓ it dispatches one ReconcileUnknownPayoutJob per unknown payout                       0.09s
+  ✓ it confirms a timeout-after-success through the reconciliation job                   0.10s
+  ✓ it running payouts:reconcile twice dispatches jobs only for still-unknown payouts    0.09s
+  ✓ it turns a retried timeout into success because the provider already moved the money 0.10s
 
-  PASS  Tests\Feature\ProviderUncertaintyTest
-  ✓ it does not treat a timeout as a failure and will not pay that amount again
-  ✓ it confirms a timeout-after-success through the status check
-  ✓ it turns a retried timeout into success because the provider already moved the money
+   PASS  Tests\Feature\RefundTest
+  ✓ it reverses unearned instructor share when the student is refunded before payout     0.11s
+  ✓ it claws back future payouts if the refund arrives after the instructor was paid     0.12s
+  ✓ it prorates a mid-term partial refund across the original allocation weights         0.10s
+  ✓ it is idempotent on the refund key                                                   0.09s
+  ✓ it rejects a refund larger than the remaining refundable amount                      0.09s
+  ✓ it fragmented refunds claw back exactly the correct cumulative amount (no penny leak) 0.09s
+  ✓ it fragmented refund across two instructors leaves zero residual when fully refunded  0.11s
+  ✓ it final fragmented refund bringing payment to 100% claws back the full pool         0.11s
 
-  PASS  Tests\Feature\RefundTest
-  ✓ it reverses unearned instructor share when the student is refunded before payout
-  ✓ it claws back future payouts if the refund arrives after the instructor was paid
-  ✓ it prorates a mid-term partial refund across the original allocation weights
-  ✓ it is idempotent on the refund key
-  ✓ it rejects a refund larger than the remaining refundable amount
+   PASS  Tests\Feature\RevenueAllocationTest
+  ✓ it splits a payment by enrolled course count after the platform cut                  0.10s
+  ✓ it gives leftover cents to the lowest instructor id when remainders tie              0.09s
+  ✓ it gives the platform 100% when the student has no enrollments                       0.06s
+  ✓ it does not allocate twice for the same payment idempotency key                      0.09s
+  ✓ it snapshots weights at payment time so later enrollments do not rewrite history     0.08s
 
-  PASS  Tests\Feature\RevenueAllocationTest
-  ✓ it splits a payment by enrolled course count after the platform cut
-  ✓ it gives leftover cents to the lowest instructor id when remainders tie
-  ✓ it gives the platform 100% when the student has no enrollments
-  ✓ it does not allocate twice for the same payment idempotency key
-  ✓ it snapshots weights at payment time so later enrollments do not rewrite history
+   PASS  Tests\Feature\StalePayoutRecoveryTest
+  ✓ it dispatches a recovery job for a payout that has been processing beyond threshold  0.10s
+  ✓ it dispatches a recovery job for a pending payout whose dispatched_at is stale       0.09s
+  ✓ it ignores a payout that is still within the staleness threshold                     0.06s
+  ✓ it does not recover payouts that are already in a terminal or unknown state          0.07s
+  ✓ it processing_started_at is stamped on first attempt and not overwritten on retries  0.08s
 
-Screenshot a terminal rerun of `php vendor/bin/pest` for the submission (required evidence).
+  Tests:    38 passed (153 assertions)
+  Duration: 4.15s

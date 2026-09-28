@@ -80,6 +80,7 @@ pending ──────────► processing ──► succeeded
 - Overlapping cron, a manual re-trigger, two app servers: the row lock + in-flight column means the second runner sees nothing to pay.
 - Permanent fail: reverse the hold, clear in-flight, next dispatch may try again with a **new** payout id (new provider key). That is a new attempt, not a double-pay of a success.
 - Unknown: blocked until `payouts:reconcile` or a job retry. Retry of `transfer()` with the same key: the mock (and a real PSP) returns the **actual** result, not another timeout.
+- Stale pending/processing: `payouts:recover-stale --threshold=30` re-dispatches `ProcessInstructorPayoutJob` with the unchanged idempotency key. Safe because the job holds a `lockForUpdate` and the provider is idempotent on that key. `processing_started_at` is stamped on the first attempt and never overwritten, giving an accurate staleness measure across retries.
 
 ## Provider timeout handling
 
@@ -99,7 +100,7 @@ In tests the provider **refuses to be random** — you must `script()`. Randomne
 
 Refund amount is in cents, `<=` remaining refundable on that payment.
 
-Clawback pool = `floor(original_instructor_pool * refund_amount / original_payment)`. Split with the **snapshotted** weights, not current enrollments.
+Clawback pool = cumulative target minus prior postings. The target for a given total refunded amount is `intdiv(original_instructor_pool * total_refunded_so_far, original_payment)`. Each refund call computes that target, subtracts what has already been posted for this payment, and posts only the delta. This prevents rounding error from accumulating across multiple partial refunds — the final refund that takes the payment to 100% always claws back the exact remaining pool regardless of how many partials preceded it.
 
 - Before payout: available drops; dispatch pays nothing (or less).
 - After payout: available may go negative. Dispatch requires `available > 0`. The instructor owes the platform; the next earnings repay it.
