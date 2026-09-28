@@ -1,0 +1,49 @@
+Instructor Revenue Ledger — Pest
+Date: 2026-09-21
+Command: php vendor/bin/pest
+Result: 28 passed (117 assertions)
+Duration: 3.79s
+
+  PASS  Tests\Unit\MoneyTest
+  ✓ it never uses floating point for arithmetic
+  ✓ it keeps the platform remainder so pool + cut === original
+  ✓ it splits leftover cents with the largest remainder method
+  ✓ it is deterministic when remainders tie: lower id wins the extra cent
+  ✓ it weights a 2:1 split exactly
+  ✓ it formats negative balances for clawbacks
+  ✓ it rejects mixed currencies
+
+  PASS  Tests\Feature\FilamentInstructorScreenTest
+  ✓ it lets an admin view instructor balances and payout history
+  ✓ it blocks non-admins from the panel
+
+  PASS  Tests\Feature\JobRetryTest
+  ✓ it does not double-pay when the same payout job is handled twice
+  ✓ it dispatches a queued payout job after the hold is posted
+  ✓ it keeps money correct if the worker crashes after the provider succeeded
+
+  PASS  Tests\Feature\PayoutIdempotencyTest
+  ✓ it never double-pays when the payout command runs twice
+  ✓ it skips an instructor who already has an in-flight payout
+  ✓ it releases the hold and allows a later payout after a permanent provider failure
+
+  PASS  Tests\Feature\ProviderUncertaintyTest
+  ✓ it does not treat a timeout as a failure and will not pay that amount again
+  ✓ it confirms a timeout-after-success through the status check
+  ✓ it turns a retried timeout into success because the provider already moved the money
+
+  PASS  Tests\Feature\RefundTest
+  ✓ it reverses unearned instructor share when the student is refunded before payout
+  ✓ it claws back future payouts if the refund arrives after the instructor was paid
+  ✓ it prorates a mid-term partial refund across the original allocation weights
+  ✓ it is idempotent on the refund key
+  ✓ it rejects a refund larger than the remaining refundable amount
+
+  PASS  Tests\Feature\RevenueAllocationTest
+  ✓ it splits a payment by enrolled course count after the platform cut
+  ✓ it gives leftover cents to the lowest instructor id when remainders tie
+  ✓ it gives the platform 100% when the student has no enrollments
+  ✓ it does not allocate twice for the same payment idempotency key
+  ✓ it snapshots weights at payment time so later enrollments do not rewrite history
+
+Screenshot a terminal rerun of `php vendor/bin/pest` for the submission (required evidence).
