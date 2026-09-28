@@ -2,33 +2,25 @@
 
 namespace App\Models;
 
-use App\Domain\Money\Money;
-use Database\Factories\RefundFactory;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Enums\RefundType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Refund extends Model
 {
-    /** @use HasFactory<RefundFactory> */
-    use HasFactory;
-
     protected $fillable = [
-        'subscription_payment_id',
-        'subscription_id',
-        'amount_cents',
-        'currency',
-        'reason',
-        'idempotency_key',
-        'processed_at',
+        'subscription_payment_id', 'subscription_id', 'type', 'amount_minor', 'currency',
+        'periods_refunded', 'reason', 'idempotency_key', 'refunded_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'amount_cents' => 'integer',
-            'processed_at' => 'datetime',
+            'type' => RefundType::class,
+            'amount_minor' => 'integer',
+            'periods_refunded' => 'integer',
+            'refunded_at' => 'immutable_datetime',
         ];
     }
 
@@ -45,10 +37,5 @@ class Refund extends Model
     public function ledgerEntries(): HasMany
     {
         return $this->hasMany(LedgerEntry::class);
-    }
-
-    public function amount(): Money
-    {
-        return Money::of((int) $this->amount_cents, $this->currency);
     }
 }

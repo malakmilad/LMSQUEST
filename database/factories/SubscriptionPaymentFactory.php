@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
 /**
+ * Raw payment rows (not allocated). To record a payment the way production
+ * does, with allocation and recognition, use RecordSubscriptionPayment.
+ *
  * @extends Factory<SubscriptionPayment>
  */
 class SubscriptionPaymentFactory extends Factory
@@ -17,14 +20,21 @@ class SubscriptionPaymentFactory extends Factory
     {
         return [
             'subscription_id' => Subscription::factory(),
-            'amount_cents' => 10_000,
+            'amount_minor' => fn (array $attributes) => Subscription::query()->find($attributes['subscription_id'])?->amount_minor ?? 30_000,
             'currency' => 'EGP',
-            'instructor_share_bps' => 7000,
-            'instructor_pool_cents' => 7_000,
-            'platform_fee_cents' => 3_000,
+            'provider_reference' => 'pay_'.Str::ulid(),
             'status' => PaymentStatus::Succeeded,
-            'idempotency_key' => (string) Str::ulid(),
             'paid_at' => now(),
         ];
+    }
+
+    public function failed(): static
+    {
+        return $this->state(['status' => PaymentStatus::Failed, 'paid_at' => null]);
+    }
+
+    public function pending(): static
+    {
+        return $this->state(['status' => PaymentStatus::Pending, 'paid_at' => null]);
     }
 }

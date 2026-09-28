@@ -2,29 +2,26 @@
 
 namespace App\Models;
 
-use Database\Factories\CourseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Course extends Model
 {
-    /** @use HasFactory<CourseFactory> */
     use HasFactory;
 
-    protected $fillable = [
-        'instructor_id',
-        'title',
-    ];
+    protected $fillable = ['title', 'instructor_id'];
 
     public function instructor(): BelongsTo
     {
         return $this->belongsTo(Instructor::class);
     }
 
-    public function enrollments(): HasMany
+    public function subscriptions(): BelongsToMany
     {
-        return $this->hasMany(Enrollment::class);
+        return $this->belongsToMany(Subscription::class, 'subscription_course')
+            ->withPivot('revenue_share_bps')
+            ->withTimestamps();
     }
 }

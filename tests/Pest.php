@@ -1,60 +1,77 @@
 <?php
 
-use App\Actions\RecordSubscriptionPayment;
+use App\Actions\Revenue\RecordSubscriptionPayment;
+use App\Enums\SubscriptionPlan;
 use App\Models\Course;
-use App\Models\Enrollment;
 use App\Models\Instructor;
-use App\Models\LedgerEntry;
-use App\Models\Plan;
+use App\Models\InstructorBalance;
 use App\Models\Subscription;
-use App\Models\User;
+use App\Models\SubscriptionPayment;
+use App\Services\Ledger\LedgerVerifier;
+use App\Services\Payments\MockPaymentProvider;
+use Carbon\CarbonImmutable;
+use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
-pest()->extend(TestCase::class)
-    ->use(RefreshDatabase::class)
-    ->in('Feature');
-
-pest()->extend(TestCase::class)
-    ->in('Unit');
+pest()->extend(TestCase::class)->use(RefreshDatabase::class)->in('Feature');
+pest()->extend(TestCase::class)->in('Unit');
+pest()->extend(TestCase::class)->use(DatabaseMigrations::class)->in('Integration');
 
 /**
- * @param  array<int, int>  $courseCounts  enrolled course count per instructor
- * @return array{plan: Plan, student: User, subscription: Subscription, instructors: list<Instructor>, payment: \App\Models\SubscriptionPayment}
+ * Subscribe a student to one course per instructor and record the payment the
+ * way production does (allocation + recognition of started periods).
+ *
+ * @param  array<int, Instructor>|array<int, array{0: Instructor, 1: int}>  $instructors
+ *                                                                                        plain instructors (equal split) or [instructor, share_bps] pairs
  */
-function paidSubscription(array $courseCounts, int $priceCents = 10_000, int $shareBps = 7_000): array
-{
-    $plan = Plan::factory()->create([
-        'price_cents' => $priceCents,
-        'instructor_share_bps' => $shareBps,
-    ]);
+function subscribe(
+    array $instructors,
+    SubscriptionPlan $plan = SubscriptionPlan::Monthly,
+    ?int $amountMinor = null,
+    ?CarbonImmutable $startsAt = null,
+): SubscriptionPayment {
+    $subscription = Subscription::factory()
+        ->plan($plan, $startsAt ?? CarbonImmutable::now())
+        ->price($amountMinor ?? $plan->priceMinor())
+        ->create();
 
-    $student = User::factory()->student()->create();
-    $subscription = Subscription::factory()->for($student)->for($plan)->create([
-        'ends_at' => now()->addDays($plan->duration_days),
-    ]);
-
-    $instructors = [];
-
-    foreach ($courseCounts as $count) {
-        $instructor = Instructor::factory()->create();
-        $instructors[] = $instructor;
-
-        for ($i = 0; $i < $count; $i++) {
-            $course = Course::factory()->for($instructor)->create();
-            Enrollment::factory()->for($subscription)->for($course)->create();
-        }
+    foreach ($instructors as $entry) {
+        [$instructor, $shareBps] = is_array($entry) ? $entry : [$entry, null];
+        $course = Course::factory()->for($instructor)->create();
+        $subscription->courses()->attach($course->id, ['revenue_share_bps' => $shareBps]);
     }
 
-    $payment = app(RecordSubscriptionPayment::class)->handle($subscription, 'pay-'.$subscription->id);
-
-    return compact('plan', 'student', 'subscription', 'instructors', 'payment');
+    return app(RecordSubscriptionPayment::class)->handle($subscription, 'pay_'.Str::ulid());
 }
 
-function assertInstructorCacheMatchesLedger(Instructor $instructor): void
+/** An instructor whose outstanding balance is exactly $outstandingMinor, earned through a real monthly subscription. */
+function instructorOwed(int $outstandingMinor = 100_000, array $attributes = []): Instructor
 {
-    $instructor->refresh();
-    $sum = (int) LedgerEntry::query()->where('instructor_id', $instructor->id)->sum('amount_cents');
+    $instructor = Instructor::factory()->create($attributes);
+    $instructorPercent = 100 - (int) config('revenue.platform_percentage');
 
-    expect((int) $instructor->available_balance_cents)->toBe($sum);
+    expect(($outstandingMinor * 100) % $instructorPercent)->toBe(0, 'Pick an amount the platform split divides exactly.');
+
+    subscribe([$instructor], SubscriptionPlan::Monthly, intdiv($outstandingMinor * 100, $instructorPercent));
+
+    expect(balanceOf($instructor)->outstanding_minor)->toBe($outstandingMinor);
+
+    return $instructor;
+}
+
+function balanceOf(Instructor $instructor): InstructorBalance
+{
+    return InstructorBalance::query()->where('instructor_id', $instructor->id)->firstOrFail();
+}
+
+function provider(): MockPaymentProvider
+{
+    return app(MockPaymentProvider::class);
+}
+
+function expectBooksToBalance(): void
+{
+    expect(app(LedgerVerifier::class)->verify())->toBe([]);
 }

@@ -1,49 +1,249 @@
-Instructor Revenue Ledger — Pest
-Date: 2026-09-21
-Command: php vendor/bin/pest
-Result: 28 passed (117 assertions)
-Duration: 3.79s
+﻿# Test evidence - generated 2026-09-28 12:27 on PHP 8.3.30
 
-  PASS  Tests\Unit\MoneyTest
-  ✓ it never uses floating point for arithmetic
-  ✓ it keeps the platform remainder so pool + cut === original
-  ✓ it splits leftover cents with the largest remainder method
-  ✓ it is deterministic when remainders tie: lower id wins the extra cent
-  ✓ it weights a 2:1 split exactly
-  ✓ it formats negative balances for clawbacks
-  ✓ it rejects mixed currencies
+## 1. Default run: SQLite in memory (php vendor/bin/pest)
 
-  PASS  Tests\Feature\FilamentInstructorScreenTest
-  ✓ it lets an admin view instructor balances and payout history
-  ✓ it blocks non-admins from the panel
 
-  PASS  Tests\Feature\JobRetryTest
-  ✓ it does not double-pay when the same payout job is handled twice
-  ✓ it dispatches a queued payout job after the hold is posted
-  ✓ it keeps money correct if the worker crashes after the provider succeeded
+   PASS  Tests\Unit\AllocatorTest
+  Γ£ô it splits 100 across three equal shares as 34, 33, 33                                                        0.42s  
+  Γ£ô it gives leftover units to the largest remainders, not always to the first share                             0.05s  
+  Γ£ô it breaks remainder ties by input order so the same input always gives the same output                       0.05s  
+  Γ£ô it splits by 50/30/20 basis points exactly                                                                   0.05s  
+  Γ£ô it never loses or creates a minor unit, whatever the weights                                                 0.07s  
+  Γ£ô it spreads an annual amount evenly across twelve months                                                      0.05s  
+  Γ£ô it floors percentages in integer arithmetic                                                                  0.05s  
+  Γ£ô it rejects impossible allocations with dataset "negative amount"                                             0.05s  
+  Γ£ô it rejects impossible allocations with dataset "no parts"                                                    0.05s  
+  Γ£ô it rejects impossible allocations with dataset "all zero weights"                                            0.05s  
+  Γ£ô it rejects impossible allocations with dataset "negative weight"                                             0.05s  
+  Γ£ô it formats minor units for humans                                                                            0.05s  
 
-  PASS  Tests\Feature\PayoutIdempotencyTest
-  ✓ it never double-pays when the payout command runs twice
-  ✓ it skips an instructor who already has an in-flight payout
-  ✓ it releases the hold and allows a later payout after a permanent provider failure
+   PASS  Tests\Unit\LedgerRecorderTest
+  Γ£ô it refuses ledger writes outside a database transaction                                                      0.10s  
 
-  PASS  Tests\Feature\ProviderUncertaintyTest
-  ✓ it does not treat a timeout as a failure and will not pay that amount again
-  ✓ it confirms a timeout-after-success through the status check
-  ✓ it turns a retried timeout into success because the provider already moved the money
+   PASS  Tests\Feature\FilamentInstructorScreenTest
+  Γ£ô it requires a signed-in staff member                                                                         0.32s  
+  Γ£ô it lists every instructor with earned, paid, outstanding and recoverable totals                              0.65s  
+  Γ£ô it shows an instructor balance and payout history with date, amount, status and provider reference           0.50s  
+  Γ£ô it offers no way to create, edit or delete from the screen                                                   0.07s  
+  Γ£ô it renders the list with a constant number of queries regardless of instructor count                         0.60s  
 
-  PASS  Tests\Feature\RefundTest
-  ✓ it reverses unearned instructor share when the student is refunded before payout
-  ✓ it claws back future payouts if the refund arrives after the instructor was paid
-  ✓ it prorates a mid-term partial refund across the original allocation weights
-  ✓ it is idempotent on the refund key
-  ✓ it rejects a refund larger than the remaining refundable amount
+   WARN  Tests\Feature\LedgerTest
+  Γ£ô it refuses to edit a ledger entry                                                                            0.19s  
+  Γ£ô it refuses to delete a ledger entry                                                                          0.16s  
+  Γ£ô it records the same business event once even if it is posted twice                                           0.09s  
+  Γ£ô it rejects a replay of an entry key with a different amount                                                  0.08s  
+  Γ£ô it enforces the sign of each entry type with dataset "positive payout"                                       0.06s  
+  Γ£ô it enforces the sign of each entry type with dataset "positive reversal"                                     0.06s  
+  Γ£ô it enforces the sign of each entry type with dataset "negative earning"                                      0.08s  
+  Γ£ô it enforces the sign of each entry type with dataset "zero adjustment"                                       0.07s  
+  Γ£ô it keeps outstanding and recoverable mutually exclusive                                                      0.09s  
+  Γ£ô it passes ledger:verify on consistent books and fails when the projection is tampered with                   0.26s  
+  Γ£ô it shows an instructor ledger on the command line                                                            0.15s  
+  - it lets the database reject a wrongly signed ledger row even if application checks are bypassed ΓåÆ CHECK conΓÇª 0.07s  
 
-  PASS  Tests\Feature\RevenueAllocationTest
-  ✓ it splits a payment by enrolled course count after the platform cut
-  ✓ it gives leftover cents to the lowest instructor id when remainders tie
-  ✓ it gives the platform 100% when the student has no enrollments
-  ✓ it does not allocate twice for the same payment idempotency key
-  ✓ it snapshots weights at payment time so later enrollments do not rewrite history
+   PASS  Tests\Feature\Payouts\PayoutJobTest
+  Γ£ô it sends one transfer when the same payout job is dispatched twice                                           0.21s  
+  Γ£ô it retries a job that crashed after the provider paid, without paying twice                                  0.23s  
+  Γ£ô it resumes a payout abandoned by a dead worker on the next payouts:process run                               0.27s  
+  Γ£ô it queues a reconciliation check when the provider times out                                                 0.20s  
+  Γ£ô it keeps re-checking an unknown payout until the provider can answer                                         0.21s  
 
-Screenshot a terminal rerun of `php vendor/bin/pest` for the submission (required evidence).
+   PASS  Tests\Feature\Payouts\PayoutProcessTest
+  Γ£ô it pays an instructor exactly once when payouts:process runs twice                                           0.20s  
+  Γ£ô it pays only the new earnings on the next run after a payout                                                 0.29s  
+  Γ£ô it does not create a payout below the minimum amount                                                         0.15s  
+  Γ£ô it skips instructors without a payout account instead of sending money nowhere                               0.12s  
+  Γ£ô it walks every instructor in chunks without loading them all at once                                         0.61s  
+  Γ£ô it lets the database refuse a second open payout for the same instructor                                     0.17s  
+  Γ£ô it does not create a second payout while one is still open                                                   0.14s  
+  Γ£ô it lets only one worker send a payout when two run at the same moment                                        0.21s  
+  Γ£ô it writes structured payout logs without the destination account                                             0.17s  
+
+   PASS  Tests\Feature\Payouts\ProviderFailureTest
+  Γ£ô it marks a permanently rejected payout failed, leaves the balance outstanding, and pays it with a new payouΓÇª 0.22s  
+  Γ£ô it treats a timeout after the provider paid as unknown, then reconciles it to paid without a second transfeΓÇª 0.28s  
+  Γ£ô it reconciles the same payout any number of times with a single ledger entry                                 0.25s  
+  Γ£ô it resends with the same idempotency key when the request never reached the provider                         0.23s  
+  Γ£ô it keeps a payout unknown while the provider cannot say what happened                                        0.22s  
+  Γ£ô it tracks a transfer the provider accepted but has not settled until it settles                              0.23s  
+  Γ£ô it treats any unexpected provider exception as unknown, never as failed                                      0.19s  
+  Γ£ô it does not let a failure report undo a payout that is already paid                                          0.19s  
+  Γ£ô it skips a payout that is already final when processed again                                                 0.18s  
+
+   PASS  Tests\Feature\Refunds\RefundTest
+  Γ£ô it reverses recognized earnings with new ledger entries on a full refund and deletes nothing                 0.24s  
+  Γ£ô it refunds a payment only once no matter how many times the refund is requested                              0.16s  
+  Γ£ô it turns a refund after payout into a recoverable 500 EGP that future earnings pay back                      0.46s  
+  Γ£ô it creates a recoverable balance when the refund lands while the payout is in flight                         0.21s  
+  Γ£ô it cancels a payout that has not been sent yet when a refund shrinks the balance                             0.16s  
+  Γ£ô it refuses to send a queued payout larger than the balance it was created from                               0.27s  
+  Γ£ô prorated refunds ΓåÆ it refunds only the months that have not started and keeps started months earned          0.20s  
+  Γ£ô prorated refunds ΓåÆ it recognizes months that started before the refund even if the recognizer has not run yΓÇª 0.18s  
+  Γ£ô prorated refunds ΓåÆ it splits odd amounts so earned plus refunded is exactly the payment                      0.37s  
+  Γ£ô prorated refunds ΓåÆ it refunds everything when the subscription has not started yet                           0.20s  
+  Γ£ô prorated refunds ΓåÆ it rejects a prorated refund once every month has started                                 0.17s  
+  Γ£ô it does not refund a payment that never succeeded                                                            0.08s  
+  Γ£ô it refunds from the command line                                                                             0.15s  
+
+   PASS  Tests\Feature\Revenue\RevenueAllocationTest
+  Γ£ô it allocates a payment 50/30/20 between instructors after the platform takes its 20 percent                  0.25s  
+  Γ£ô it keeps platform share plus instructor shares equal to the payment for awkward amounts with (1)             0.13s  
+  Γ£ô it keeps platform share plus instructor shares equal to the payment for awkward amounts with (7)             0.27s  
+  Γ£ô it keeps platform share plus instructor shares equal to the payment for awkward amounts with (99)            0.25s  
+  Γ£ô it keeps platform share plus instructor shares equal to the payment for awkward amounts with (101)           0.18s  
+  Γ£ô it keeps platform share plus instructor shares equal to the payment for awkward amounts with (12345)         0.17s  
+  Γ£ô it keeps platform share plus instructor shares equal to the payment for awkward amounts with (299999)        0.17s  
+  Γ£ô it reads the platform percentage from config and snapshots it on the payment                                 0.20s  
+  Γ£ô it splits the pool per course when no explicit percentages are set                                           0.14s  
+  Γ£ô it rejects course percentages that do not add up to 100                                                      0.10s  
+  Γ£ô it rejects a subscription where only some courses have a percentage                                          0.12s  
+  Γ£ô it leaves nothing behind when allocation is rejected                                                         0.14s  
+  Γ£ô it records a payment delivered twice by the provider only once                                               0.16s  
+  Γ£ô it allocates a payment only once even if allocation is triggered again                                       0.11s  
+  Γ£ô it keeps the whole payment for the platform when the subscription has no courses                             0.09s  
+  Γ£ô it refuses to pay an instructor in a currency different from the payment                                     0.11s  
+
+   PASS  Tests\Feature\Revenue\RevenueRecognitionTest
+  Γ£ô it earns an annual subscription one month at a time: 12,000 EGP becomes 1,000 EGP per month                  0.29s  
+  Γ£ô it earns a monthly subscription in full as soon as it starts                                                 0.09s  
+  Γ£ô it does not earn anything for a subscription that starts in the future                                       0.10s  
+  Γ£ô it catches up every missed month in one run and posts each month exactly once                                0.15s  
+  Γ£ô it dates each earning entry at the start of the month it belongs to                                          0.12s  
+  Γ£ô it marks subscriptions expired once their term is over                                                       0.11s  
+
+   PASS  Tests\Feature\Revenue\RoundingTest
+  Γ£ô it splits a 100 unit pool across three instructors as 34/33/33 with the extra unit going to the lowest instΓÇª 0.15s  
+  Γ£ô it gives the same split no matter which order the courses were attached in                                   0.19s  
+  Γ£ô it floors the platform share so rounding never takes money from instructors                                  0.09s  
+  Γ£ô it recognizes an allocation that does not divide by twelve without losing a unit                             0.20s  
+
+   WARN  Tests\Integration\ConcurrentPayoutProcessesTest
+  - it pays every instructor exactly once when four payouts:process runs overlap ΓåÆ Multi-process concurrency test runs against MySQL only.
+
+  Tests:    2 skipped, 91 passed (872 assertions)
+  Duration: 17.49s
+
+
+## 2. MySQL 8.4 run (docker compose, database lms_testing): adds CHECK constraints + 4-process concurrency
+
+
+   PASS  Tests\Unit\AllocatorTest
+  Γ£ô it splits 100 across three equal shares as 34, 33, 33                                                        0.25s  
+  Γ£ô it gives leftover units to the largest remainders, not always to the first share                             0.05s  
+  Γ£ô it breaks remainder ties by input order so the same input always gives the same output                       0.06s  
+  Γ£ô it splits by 50/30/20 basis points exactly                                                                   0.05s  
+  Γ£ô it never loses or creates a minor unit, whatever the weights                                                 0.07s  
+  Γ£ô it spreads an annual amount evenly across twelve months                                                      0.05s  
+  Γ£ô it floors percentages in integer arithmetic                                                                  0.05s  
+  Γ£ô it rejects impossible allocations with dataset "negative amount"                                             0.08s  
+  Γ£ô it rejects impossible allocations with dataset "no parts"                                                    0.06s  
+  Γ£ô it rejects impossible allocations with dataset "all zero weights"                                            0.05s  
+  Γ£ô it rejects impossible allocations with dataset "negative weight"                                             0.05s  
+  Γ£ô it formats minor units for humans                                                                            0.05s  
+
+   PASS  Tests\Unit\LedgerRecorderTest
+  Γ£ô it refuses ledger writes outside a database transaction                                                      0.09s  
+
+   PASS  Tests\Feature\FilamentInstructorScreenTest
+  Γ£ô it requires a signed-in staff member                                                                         3.37s  
+  Γ£ô it lists every instructor with earned, paid, outstanding and recoverable totals                              1.08s  
+  Γ£ô it shows an instructor balance and payout history with date, amount, status and provider reference           0.86s  
+  Γ£ô it offers no way to create, edit or delete from the screen                                                   0.12s  
+  Γ£ô it renders the list with a constant number of queries regardless of instructor count                         0.76s  
+
+   PASS  Tests\Feature\LedgerTest
+  Γ£ô it refuses to edit a ledger entry                                                                            0.17s  
+  Γ£ô it refuses to delete a ledger entry                                                                          0.17s  
+  Γ£ô it records the same business event once even if it is posted twice                                           0.12s  
+  Γ£ô it rejects a replay of an entry key with a different amount                                                  0.16s  
+  Γ£ô it enforces the sign of each entry type with dataset "positive payout"                                       0.10s  
+  Γ£ô it enforces the sign of each entry type with dataset "positive reversal"                                     0.09s  
+  Γ£ô it enforces the sign of each entry type with dataset "negative earning"                                      0.07s  
+  Γ£ô it enforces the sign of each entry type with dataset "zero adjustment"                                       0.10s  
+  Γ£ô it keeps outstanding and recoverable mutually exclusive                                                      0.11s  
+  Γ£ô it passes ledger:verify on consistent books and fails when the projection is tampered with                   0.30s  
+  Γ£ô it shows an instructor ledger on the command line                                                            0.23s  
+  Γ£ô it lets the database reject a wrongly signed ledger row even if application checks are bypassed              0.13s  
+
+   PASS  Tests\Feature\Payouts\PayoutJobTest
+  Γ£ô it sends one transfer when the same payout job is dispatched twice                                           0.32s  
+  Γ£ô it retries a job that crashed after the provider paid, without paying twice                                  0.33s  
+  Γ£ô it resumes a payout abandoned by a dead worker on the next payouts:process run                               0.36s  
+  Γ£ô it queues a reconciliation check when the provider times out                                                 0.26s  
+  Γ£ô it keeps re-checking an unknown payout until the provider can answer                                         0.26s  
+
+   PASS  Tests\Feature\Payouts\PayoutProcessTest
+  Γ£ô it pays an instructor exactly once when payouts:process runs twice                                           0.38s  
+  Γ£ô it pays only the new earnings on the next run after a payout                                                 0.42s  
+  Γ£ô it does not create a payout below the minimum amount                                                         0.19s  
+  Γ£ô it skips instructors without a payout account instead of sending money nowhere                               0.18s  
+  Γ£ô it walks every instructor in chunks without loading them all at once                                         1.00s  
+  Γ£ô it lets the database refuse a second open payout for the same instructor                                     0.23s  
+  Γ£ô it does not create a second payout while one is still open                                                   0.17s  
+  Γ£ô it lets only one worker send a payout when two run at the same moment                                        0.24s  
+  Γ£ô it writes structured payout logs without the destination account                                             0.22s  
+
+   PASS  Tests\Feature\Payouts\ProviderFailureTest
+  Γ£ô it marks a permanently rejected payout failed, leaves the balance outstanding, and pays it with a new payouΓÇª 0.31s  
+  Γ£ô it treats a timeout after the provider paid as unknown, then reconciles it to paid without a second transfeΓÇª 0.27s  
+  Γ£ô it reconciles the same payout any number of times with a single ledger entry                                 0.29s  
+  Γ£ô it resends with the same idempotency key when the request never reached the provider                         0.28s  
+  Γ£ô it keeps a payout unknown while the provider cannot say what happened                                        0.32s  
+  Γ£ô it tracks a transfer the provider accepted but has not settled until it settles                              0.25s  
+  Γ£ô it treats any unexpected provider exception as unknown, never as failed                                      0.20s  
+  Γ£ô it does not let a failure report undo a payout that is already paid                                          0.20s  
+  Γ£ô it skips a payout that is already final when processed again                                                 0.22s  
+
+   PASS  Tests\Feature\Refunds\RefundTest
+  Γ£ô it reverses recognized earnings with new ledger entries on a full refund and deletes nothing                 0.28s  
+  Γ£ô it refunds a payment only once no matter how many times the refund is requested                              0.16s  
+  Γ£ô it turns a refund after payout into a recoverable 500 EGP that future earnings pay back                      0.52s  
+  Γ£ô it creates a recoverable balance when the refund lands while the payout is in flight                         0.25s  
+  Γ£ô it cancels a payout that has not been sent yet when a refund shrinks the balance                             0.24s  
+  Γ£ô it refuses to send a queued payout larger than the balance it was created from                               0.25s  
+  Γ£ô prorated refunds ΓåÆ it refunds only the months that have not started and keeps started months earned          0.26s  
+  Γ£ô prorated refunds ΓåÆ it recognizes months that started before the refund even if the recognizer has not run yΓÇª 0.21s  
+  Γ£ô prorated refunds ΓåÆ it splits odd amounts so earned plus refunded is exactly the payment                      0.48s  
+  Γ£ô prorated refunds ΓåÆ it refunds everything when the subscription has not started yet                           0.16s  
+  Γ£ô prorated refunds ΓåÆ it rejects a prorated refund once every month has started                                 0.15s  
+  Γ£ô it does not refund a payment that never succeeded                                                            0.08s  
+  Γ£ô it refunds from the command line                                                                             0.17s  
+
+   PASS  Tests\Feature\Revenue\RevenueAllocationTest
+  Γ£ô it allocates a payment 50/30/20 between instructors after the platform takes its 20 percent                  0.25s  
+  Γ£ô it keeps platform share plus instructor shares equal to the payment for awkward amounts with (1)             0.17s  
+  Γ£ô it keeps platform share plus instructor shares equal to the payment for awkward amounts with (7)             0.20s  
+  Γ£ô it keeps platform share plus instructor shares equal to the payment for awkward amounts with (99)            0.22s  
+  Γ£ô it keeps platform share plus instructor shares equal to the payment for awkward amounts with (101)           0.22s  
+  Γ£ô it keeps platform share plus instructor shares equal to the payment for awkward amounts with (12345)         0.25s  
+  Γ£ô it keeps platform share plus instructor shares equal to the payment for awkward amounts with (299999)        0.26s  
+  Γ£ô it reads the platform percentage from config and snapshots it on the payment                                 0.16s  
+  Γ£ô it splits the pool per course when no explicit percentages are set                                           0.22s  
+  Γ£ô it rejects course percentages that do not add up to 100                                                      0.12s  
+  Γ£ô it rejects a subscription where only some courses have a percentage                                          0.10s  
+  Γ£ô it leaves nothing behind when allocation is rejected                                                         0.13s  
+  Γ£ô it records a payment delivered twice by the provider only once                                               0.15s  
+  Γ£ô it allocates a payment only once even if allocation is triggered again                                       0.16s  
+  Γ£ô it keeps the whole payment for the platform when the subscription has no courses                             0.12s  
+  Γ£ô it refuses to pay an instructor in a currency different from the payment                                     0.14s  
+
+   PASS  Tests\Feature\Revenue\RevenueRecognitionTest
+  Γ£ô it earns an annual subscription one month at a time: 12,000 EGP becomes 1,000 EGP per month                  0.35s  
+  Γ£ô it earns a monthly subscription in full as soon as it starts                                                 0.15s  
+  Γ£ô it does not earn anything for a subscription that starts in the future                                       0.15s  
+  Γ£ô it catches up every missed month in one run and posts each month exactly once                                0.27s  
+  Γ£ô it dates each earning entry at the start of the month it belongs to                                          0.21s  
+  Γ£ô it marks subscriptions expired once their term is over                                                       0.16s  
+
+   PASS  Tests\Feature\Revenue\RoundingTest
+  Γ£ô it splits a 100 unit pool across three instructors as 34/33/33 with the extra unit going to the lowest instΓÇª 0.21s  
+  Γ£ô it gives the same split no matter which order the courses were attached in                                   0.32s  
+  Γ£ô it floors the platform share so rounding never takes money from instructors                                  0.17s  
+  Γ£ô it recognizes an allocation that does not divide by twelve without losing a unit                             0.33s  
+
+   PASS  Tests\Integration\ConcurrentPayoutProcessesTest
+  Γ£ô it pays every instructor exactly once when four payouts:process runs overlap                                10.94s  
+
+  Tests:    93 passed (965 assertions)
+  Duration: 35.48s
+

@@ -3,32 +3,44 @@
 return [
 
     /*
-    |--------------------------------------------------------------------------
-    | Ledger currency
-    |--------------------------------------------------------------------------
-    |
     | All money in this bounded context is stored as integer minor units
-    | (piastres). One EGP = 100 cents in this codebase.
-    |
+    | (1 EGP = 100 minor units). No floats anywhere in the money path.
     */
     'currency' => env('REVENUE_CURRENCY', 'EGP'),
 
     /*
-    | Default instructor share of a subscription payment, in basis points.
-    | 7000 = 70% to instructors, 30% platform. Overridable per plan.
+    | Platform share of every subscription payment, in whole percent.
+    | The remainder is the instructor pool. The platform share is floored,
+    | so any sub-minor-unit rounding benefit goes to instructors.
+    | The value is snapshotted onto each payment at allocation time.
     */
-    'default_instructor_share_bps' => (int) env('REVENUE_INSTRUCTOR_SHARE_BPS', 7000),
+    'platform_percentage' => (int) env('REVENUE_PLATFORM_PERCENTAGE', 20),
 
     /*
-    | Instructors below this available balance are skipped by payouts:dispatch.
-    | Tests pass --min=0 to exercise the exact ledger numbers.
+    | Prepaid plans. A subscription term is recognized one month-period at a
+    | time: period n is earned when it starts (see docs/ARCHITECTURE.md).
     */
-    'min_payout_cents' => (int) env('REVENUE_MIN_PAYOUT_CENTS', 10_000),
+    'plans' => [
+        'monthly' => ['months' => 1, 'price_minor' => 30_000],
+        'three_month' => ['months' => 3, 'price_minor' => 80_000],
+        'annual' => ['months' => 12, 'price_minor' => 300_000],
+    ],
 
-    'mock_provider' => [
-        'success_weight' => 50,
-        'permanent_fail_weight' => 25,
-        'timeout_after_success_weight' => 25,
+    'payouts' => [
+        // Instructors whose outstanding balance is below this are not paid yet.
+        'min_amount_minor' => (int) env('PAYOUT_MIN_AMOUNT_MINOR', 10_000),
+
+        // A claimed payout belongs to one worker for this long. Must exceed the
+        // provider HTTP timeout, otherwise a slow-but-alive worker gets taken over.
+        'claim_lease_seconds' => (int) env('PAYOUT_CLAIM_LEASE_SECONDS', 300),
+
+        // Pending payouts older than this get their job re-dispatched by payouts:process.
+        'redispatch_after_seconds' => (int) env('PAYOUT_REDISPATCH_AFTER_SECONDS', 600),
+
+        // Delay before a payout in UNKNOWN / SUBMITTED is checked against the provider.
+        'reconcile_delay_seconds' => (int) env('PAYOUT_RECONCILE_DELAY_SECONDS', 60),
+
+        'chunk_size' => 500,
     ],
 
 ];

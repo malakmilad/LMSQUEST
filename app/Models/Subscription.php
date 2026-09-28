@@ -2,50 +2,44 @@
 
 namespace App\Models;
 
+use App\Enums\SubscriptionPlan;
 use App\Enums\SubscriptionStatus;
-use Database\Factories\SubscriptionFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Subscription extends Model
 {
-    /** @use HasFactory<SubscriptionFactory> */
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
-        'plan_id',
-        'status',
-        'starts_at',
-        'ends_at',
-        'cancelled_at',
+        'student_id', 'plan', 'amount_minor', 'currency', 'starts_at', 'ends_at', 'status', 'cancelled_at',
     ];
 
     protected function casts(): array
     {
         return [
+            'plan' => SubscriptionPlan::class,
             'status' => SubscriptionStatus::class,
-            'starts_at' => 'datetime',
-            'ends_at' => 'datetime',
-            'cancelled_at' => 'datetime',
+            'amount_minor' => 'integer',
+            'starts_at' => 'immutable_datetime',
+            'ends_at' => 'immutable_datetime',
+            'cancelled_at' => 'immutable_datetime',
         ];
     }
 
-    public function user(): BelongsTo
+    public function student(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(Student::class);
     }
 
-    public function plan(): BelongsTo
+    public function courses(): BelongsToMany
     {
-        return $this->belongsTo(Plan::class);
-    }
-
-    public function enrollments(): HasMany
-    {
-        return $this->hasMany(Enrollment::class);
+        return $this->belongsToMany(Course::class, 'subscription_course')
+            ->withPivot('revenue_share_bps')
+            ->withTimestamps();
     }
 
     public function payments(): HasMany

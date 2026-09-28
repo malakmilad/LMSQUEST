@@ -1,0 +1,3 @@
+CREATE DATABASE IF NOT EXISTS lms_testing;
+GRANT ALL PRIVILEGES ON lms_testing.* TO 'lms'@'%';
+FLUSH PRIVILEGES;

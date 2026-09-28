@@ -1,83 +1,71 @@
 # AI usage
 
-AI tools were used. The design is mine. This file is so a reviewer can tell the difference.
+AI was used heavily. This file separates what the tools produced from what was decided by a person, so a reviewer can tell the difference.
 
-## How I used AI
+## How AI was used
 
-I worked in **Cursor** (agent on the Grok 4.6 model) against an empty Laravel tree plus a personal architecture notes file.
+The code was written in **Cursor** with its agent, in two passes:
 
-Typical loop:
+1. **First pass.** From the quest brief, the agent scaffolded Laravel 11 / Filament 3 / Pest 3 and built a first design. That design earned revenue immediately on payment and debited the instructor ("hold") before calling the provider.
+2. **Second pass.** I wrote a detailed implementation specification: money rules, recognition policy, entity list, payout state machine, provider contract, required tests, documentation outline and agent operating rules. I had the agent rebuild the money core against it. The specification changed several first-pass decisions (see "Rejected suggestions").
 
-1. I specified the quest constraints (idempotency, timeout-after-success, 500k scale, Pest, Filament read-only)
-2. I decided the ledger / hold-before-call / snapshot-weights model (see below)
-3. The agent scaffolded Laravel 11, Filament v3, Pest 3, and wrote first-pass PHP
-4. I reviewed every money path, tightened tests, and rewrote the docs in my voice
+In both passes the agent generated most of the PHP, the tests and first drafts of these documents. It ran the suite on SQLite and on MySQL after each phase.
 
-I did **not** paste the quest into a chatbot and submit the first zip file.
+## What was generated
 
-## Prompts / workflows I actually relied on
+- Migrations, models, factories and the seeder
+- `Allocator` (largest remainder), `LedgerRecorder`, `LedgerVerifier`, `PayoutTransitions`
+- The revenue actions (record, allocate, recognize, refund) and payout actions (create, process, submit, reconcile, cancel)
+- `MockPaymentProvider` with scripted, forced and destination-based outcomes
+- Jobs, Artisan commands, schedule, JSON payout log channel
+- Filament resource and relation managers
+- All Pest tests, including the MySQL multi-process concurrency test
+- Drafts of README and ARCHITECTURE
 
-- “Scaffold Laravel 11 + Filament v3 + Pest in this repo; keep `LARAVEL_ARCHITECTURE.md`.”
-- “Implement an append-only instructor ledger with unique idempotency keys and a cached balance updated in the same transaction.”
-- “MockPaymentProvider must persist success *before* returning timeout, and retries must return the actual status.”
-- “Pest coverage: double dispatch, duplicate handle(), timeout, reconcile, refund before and after payout, largest remainder.”
-- Follow-up: fix Composer advisory blocking on Laravel 11 / Filament 3, bind the mock provider as a singleton, force `queue.default=sync` in the seeder.
+## Decisions made by a person (in the specification or in review)
 
-I am not dumping the raw prompt log. The list above is the workflow.
+- Integer minor units only; configurable platform percentage (default 20%); percentage-based instructor splits that must total 100%.
+- Largest-remainder rounding with a deterministic tie-break (100 gives 34/33/33).
+- **Progressive recognition** (annual 12,000 gives 1,000 per month) instead of earning everything on payment.
+- Ledger as the immutable source of truth with the four entry types and sign convention; `instructor_balances` as a transactional projection with a recoverable column.
+- Payout ledger entry **only on confirmed success**; permanent failure has no ledger effect.
+- Timeout means UNKNOWN, never FAILED; reconcile through `status(key)`; one idempotency key reused on every retry.
+- No transaction held across the provider call; `lockForUpdate` claims.
+- Refund after payout produces a recoverable balance offset against future payouts.
+- The list of required failure-scenario tests and business-style test names.
+- Filament stays read-only.
 
-## Generated vs designed
+## Choices the agent made that I reviewed and kept
 
-| Piece | Who |
+- `open_instructor_id` nullable UNIQUE column as MySQL's substitute for a partial unique index ("one open payout per instructor").
+- Claim lease (`claimed_until`) plus status-first recovery for crashed workers, rather than trusting job middleware.
+- Fallback split when a subscription has no percentages: equal share per course. Mixed or partial percentages are rejected rather than guessed.
+- A subscription with no courses: the platform keeps 100%.
+- Prorated refund amount computed from the same per-period splits as recognition, so earned + kept + refunded equals the payment exactly.
+- Re-checking `outstanding` at claim time so a refund that lands between payout creation and sending cancels the payout.
+- The mock's `submission_count` and `beforeTransfer` hook, so tests can assert "no second transfer" and interleave two workers deterministically.
+- MySQL CHECK constraints as a second line of defence behind the application checks.
+
+## Rejected suggestions
+
+| Suggestion | Why it was rejected |
 |---|---|
-| Laravel/Filament/Pest boilerplate, model fillable, Filament table columns | Mostly generated, then trimmed |
-| Integer `Money` VO, largest-remainder split, tie-break by instructor id | Specified by me; implementation generated and checked against hand-calculated examples (70 ÷ 3, 7000 × 2:1) |
-| Earn-on-collection vs daily accrual | I chose earn-on-collection. I rejected daily accrual at 500k subscriptions |
-| Hold-before-provider-call + `unknown` status | I chose this. A generated “mark paid on success” design was considered and rejected |
-| Allocation snapshot at payment time | I chose this. Retroactive re-split on new enrollments was rejected |
-| Refund = clawback of `pool * refund/original`, negative balances allowed | I chose this |
-| `instructors.in_flight_payout_id` instead of a MySQL partial unique index | I chose this (MySQL cannot do the Postgres-style partial unique) |
-| Tests for the failure matrix | I listed the cases; the agent wrote them; I corrected the 50% refund cent split (2334 / 1166) |
-| `docs/ARCHITECTURE.md` structure and trade-offs | Mine. Prose was drafted with AI and then rewritten so I can defend it live |
-| Senior bonus (plan change) | Mine: new payment + new snapshot, never mutate the old term |
+| Debit (hold) the instructor **before** calling the provider (the first-pass design) | Replaced by "ledger entry only on confirmed success". Double-pay protection now comes from the open-payout guard, the fixed idempotency key and status-first reconciliation. A failed transfer never touches the books. |
+| Recognize the full payment immediately | Violates the recognition policy; makes mid-term refunds claw back money for months already served. |
+| Mark a payout `failed` when the provider call throws | Timeout after success would then pay twice on retry. Any exception now means `unknown`. |
+| Retry an uncertain payout with a new idempotency key / new payout | Same double-pay risk. The key is fixed at creation and reused. |
+| Wrap the provider call in the DB transaction | Holds row locks for an HTTP round trip. It also rolls back our record while the money has already moved. |
+| Rely on `WithoutOverlapping` / `ShouldBeUnique` for exactly-once | Cache locks expire and queues redeliver. Kept only as a courtesy; the row claim is the real guard. |
+| `Instructor::all()` in the payout batch | Unbounded memory at 500k scale; replaced by `chunkById` on indexed predicates. |
+| Random mock outcomes in tests | Non-deterministic tests. Random mode throws under `runningUnitTests()`. |
+| `decimal(10,2)` money columns | Invites float casts in PHP; integer minor units instead. |
+| Logging the payout destination for debugging | Account references are sensitive; logs carry ids, keys and references only (tested). |
+| Deleting or editing ledger rows to "fix" a refund | History must stay intact; refunds add `refund_reversal` entries. The model throws on update and delete. |
 
-## Engineering decisions I made myself
+## Verification
 
-1. **Ledger is the source of truth.** The balance column is a projection. If they disagree, the ledger wins and tests fail.
-2. **Debit the instructor before calling the PSP.** Conservative under uncertainty. The expensive mistake is double-pay, not a delayed pay.
-3. **Timeout is not failure.** Failure reverses money. Timeout leaves it in limbo on purpose.
-4. **Provider idempotency key = payout ULID.** Worker crash after HTTP success is a retry of the same transfer, not a new one.
-5. **Do not randomize in tests.** `MockPaymentProvider` throws in `testing` unless you `script()`. Demos can be random; correctness tests cannot.
-6. **No repository layer on the ledger.** The locking *is* the business logic. Hiding `lockForUpdate()` behind `InstructorRepository::find()` would be theatre.
-7. **Filament is read-only.** The quest asked for a view, not an admin who can edit cents.
+The agent's output was not taken on trust. Checks run:
 
-## What I told the model to stop doing
-
-- Daily accrual jobs
-- `float` / `decimal(8,2)` as the unit of record
-- Equal split that ignores course weights
-- Paying on provider success without a hold
-- Catching `\Exception` around the PSP and retrying with a new payout id
-- Building a full LMS (courses player, auth product, etc.)
-- Copying the entire `LARAVEL_ARCHITECTURE.md` modular monolith into this repo
-
-## What differentiates this from a typical AI-generated submission
-
-Most generated solutions will have: a `balance` column, a command that `SUM`s and `UPDATE`s it, a mock that `rand()`s inside the test suite, and a README that says “idempotent” without a unique key.
-
-This one has:
-
-- An immutable ledger with unique keys as the actual mutex
-- A provider that can succeed in its own database while returning timeout to us
-- A hold that makes “I am not sure” a first-class state
-- Tests that fail if you run the command twice, handle the job twice, or refund after payout without going negative
-- Written trade-offs for the questions the quest left blank
-
-If you ask me in the review to change the weight function to watch-time, or to add a 14-day reserve, that is a new entry type plus a payable rule — not a rewrite.
-
-## Trade-offs I accepted
-
-- Immediate recognition vs deferred revenue (see Architecture)
-- Course-count weights vs engagement (no data in the brief)
-- Negative balances vs attempting PSP clawbacks
-- SQLite in CI vs InnoDB gap locks (unique keys still hold)
-- Laravel 11 / Filament 3 as specified, even though Composer currently flags those lines as having advisories. The quest pinned the versions; I did not silently upgrade to Laravel 12 / Filament 4
+- `ledger:verify` after every money-moving test (projection, allocation, recognition and payout invariants rebuilt from scratch);
+- the full suite on MySQL 8.4 as well as SQLite, including real multi-process races;
+- the seeded demo (`migrate:fresh --seed`, `payouts:process`, `queue:work`, `payouts:reconcile`) checked by hand against `ledger:show`.

@@ -2,49 +2,36 @@
 
 namespace App\Models;
 
-use App\Domain\Money\Money;
 use App\Enums\LedgerEntryType;
-use App\Exceptions\ImmutableLedgerException;
+use App\Exceptions\LedgerException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Append-only. Only App\Services\Ledger\LedgerRecorder writes these rows,
+ * because it also has to update the instructor_balances projection.
+ */
 class LedgerEntry extends Model
 {
-    public const UPDATED_AT = null;
-
     protected $fillable = [
-        'instructor_id',
-        'type',
-        'amount_cents',
-        'currency',
-        'subscription_payment_id',
-        'refund_id',
-        'payout_id',
-        'idempotency_key',
-        'description',
-        'occurred_at',
-        'created_at',
+        'instructor_id', 'type', 'amount_minor', 'currency', 'entry_key', 'subscription_id',
+        'subscription_payment_id', 'revenue_allocation_id', 'refund_id', 'payout_id', 'metadata', 'occurred_at',
     ];
 
     protected function casts(): array
     {
         return [
             'type' => LedgerEntryType::class,
-            'amount_cents' => 'integer',
-            'occurred_at' => 'datetime',
-            'created_at' => 'datetime',
+            'amount_minor' => 'integer',
+            'metadata' => 'array',
+            'occurred_at' => 'immutable_datetime',
         ];
     }
 
     protected static function booted(): void
     {
-        static::updating(function (): never {
-            throw new ImmutableLedgerException('Ledger entries are immutable.');
-        });
-
-        static::deleting(function (): never {
-            throw new ImmutableLedgerException('Ledger entries are immutable.');
-        });
+        static::updating(fn () => throw LedgerException::immutable());
+        static::deleting(fn () => throw LedgerException::immutable());
     }
 
     public function instructor(): BelongsTo
@@ -52,9 +39,9 @@ class LedgerEntry extends Model
         return $this->belongsTo(Instructor::class);
     }
 
-    public function payment(): BelongsTo
+    public function payout(): BelongsTo
     {
-        return $this->belongsTo(SubscriptionPayment::class, 'subscription_payment_id');
+        return $this->belongsTo(Payout::class);
     }
 
     public function refund(): BelongsTo
@@ -62,13 +49,8 @@ class LedgerEntry extends Model
         return $this->belongsTo(Refund::class);
     }
 
-    public function payout(): BelongsTo
+    public function allocation(): BelongsTo
     {
-        return $this->belongsTo(Payout::class);
-    }
-
-    public function amount(): Money
-    {
-        return Money::of((int) $this->amount_cents, $this->currency);
+        return $this->belongsTo(RevenueAllocation::class, 'revenue_allocation_id');
     }
 }

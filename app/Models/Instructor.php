@@ -2,40 +2,34 @@
 
 namespace App\Models;
 
-use App\Domain\Money\Money;
-use Database\Factories\InstructorFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Instructor extends Model
 {
-    /** @use HasFactory<InstructorFactory> */
     use HasFactory;
 
-    protected $fillable = [
-        'user_id',
-        'available_balance_cents',
-        'currency',
-        'in_flight_payout_id',
-    ];
+    protected $fillable = ['name', 'email', 'payout_account_reference', 'currency'];
 
-    protected function casts(): array
-    {
-        return [
-            'available_balance_cents' => 'integer',
-        ];
-    }
+    protected $hidden = ['payout_account_reference'];
 
-    public function user(): BelongsTo
+    protected static function booted(): void
     {
-        return $this->belongsTo(User::class);
+        static::created(function (Instructor $instructor) {
+            InstructorBalance::query()->create(['instructor_id' => $instructor->id, 'currency' => $instructor->currency]);
+        });
     }
 
     public function courses(): HasMany
     {
         return $this->hasMany(Course::class);
+    }
+
+    public function balance(): HasOne
+    {
+        return $this->hasOne(InstructorBalance::class);
     }
 
     public function ledgerEntries(): HasMany
@@ -48,22 +42,8 @@ class Instructor extends Model
         return $this->hasMany(Payout::class);
     }
 
-    public function inFlightPayout(): BelongsTo
+    public function revenueAllocations(): HasMany
     {
-        return $this->belongsTo(Payout::class, 'in_flight_payout_id');
-    }
-
-    public function availableBalance(): Money
-    {
-        return Money::of((int) $this->available_balance_cents, $this->currency);
-    }
-
-    public function hasInFlightPayout(): bool
-    {
-        if ($this->in_flight_payout_id === null) {
-            return false;
-        }
-
-        return $this->inFlightPayout?->status->isInFlight() ?? false;
+        return $this->hasMany(RevenueAllocation::class);
     }
 }

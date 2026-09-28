@@ -1,8 +1,8 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote')->hourly();
+Schedule::command('revenue:recognize')->hourly()->withoutOverlapping()->onOneServer();
+Schedule::command('payouts:process')->dailyAt('02:00')->withoutOverlapping()->onOneServer();
+Schedule::command('payouts:reconcile')->everyFiveMinutes()->withoutOverlapping()->onOneServer();
+Schedule::command('ledger:verify')->dailyAt('06:00')->onOneServer();

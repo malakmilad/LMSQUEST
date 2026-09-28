@@ -2,8 +2,8 @@
 
 namespace App\Providers;
 
-use App\Payments\Contracts\PaymentProvider;
-use App\Payments\MockPaymentProvider;
+use App\Contracts\PaymentProvider;
+use App\Services\Payments\MockPaymentProvider;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
